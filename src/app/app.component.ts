@@ -1,10 +1,15 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { IonicModule } from '@ionic/angular';
 
 @Component({
+  imports: [IonicModule],
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-root',
-  templateUrl: 'app.component.html',
-  styleUrls: ['app.component.scss'],
+  template: `
+    <ion-app>
+      <ion-router-outlet></ion-router-outlet>
+    </ion-app>
+  `,
 })
-export class AppComponent {
-  constructor() {}
-}
+export class AppComponent {}
