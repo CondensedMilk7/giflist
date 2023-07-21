@@ -12,6 +12,9 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { provideRouter } from '@angular/router';
 import { APP_ROUTES } from './app/app.routes';
 import { HttpClientModule } from '@angular/common/http';
+import { IonicStorageModule } from '@ionic/storage-angular';
+import * as cordovaSQLiteDriver from 'localforage-cordovasqlitedriver';
+import { Drivers } from '@ionic/storage';
 
 if (environment.production) {
   enableProdMode();
@@ -19,7 +22,17 @@ if (environment.production) {
 
 bootstrapApplication(AppComponent, {
   providers: [
-    importProvidersFrom([IonicModule.forRoot(), HttpClientModule]),
+    importProvidersFrom([
+      IonicModule.forRoot(),
+      HttpClientModule,
+      IonicStorageModule.forRoot({
+        driverOrder: [
+          cordovaSQLiteDriver._driver,
+          Drivers.IndexedDB,
+          Drivers.LocalStorage,
+        ],
+      }),
+    ]),
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     provideRouter(APP_ROUTES, withPreloading(PreloadAllModules)),
   ],

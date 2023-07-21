@@ -1,13 +1,24 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
 import { RedditService } from '../shared/data-access/reddit.service';
 import { GifListCopmonent } from './ui/gif-list.component';
 import { CommonModule } from '@angular/common';
 import { BehaviorSubject, combineLatest, map, startWith, tap } from 'rxjs';
 import { Gif } from '../shared/interfaces';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { SearchBarComponent } from './ui/search-bar.component';
+import { SettingsComponent } from '../settings/settings.component';
+import { SettingsService } from '../shared/data-access/settings.service';
 
 @Component({
-  imports: [CommonModule, IonicModule, GifListCopmonent],
+  imports: [
+    CommonModule,
+    IonicModule,
+    GifListCopmonent,
+    ReactiveFormsModule,
+    SearchBarComponent,
+    SettingsComponent,
+  ],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-home',
@@ -15,15 +26,41 @@ import { Gif } from '../shared/interfaces';
     <ng-container *ngIf="vm$ | async as vm">
       <ion-header>
         <ion-toolbar>
-          <ion-title>Home</ion-title>
+          <app-search-bar
+            [subredditFormControl]="subredditFormControl"
+          ></app-search-bar>
+          <ion-buttons slot="end">
+            <ion-button
+              id="settings-button"
+              (click)="settingsModalOpen$.next(true)"
+            >
+              <ion-icon slot="icon-only" name="settings"></ion-icon>
+            </ion-button>
+          </ion-buttons>
         </ion-toolbar>
+        <ion-progress-bar
+          *ngIf="vm.isLoading"
+          color="dark"
+          type="indeterminate"
+          reversed="true"
+        ></ion-progress-bar>
       </ion-header>
       <ion-content>
+        <ion-popover
+          trigger="settings-button"
+          [isOpen]="vm.settingsModalOpen"
+          (ionPopoverDidDismiss)="this.settingsModalOpen$.next(false)"
+        >
+          <ng-template>
+            <app-settings></app-settings>
+          </ng-template>
+        </ion-popover>
+
         <app-gif-list
           *ngIf="vm.gifs"
           [gifs]="vm.gifs"
           (gifLoadStart)="setLoading($event)"
-          (gifLoadComplete)="setLoadingCoplete($event)"
+          (gifLoadComplete)="setLoadingComplete($event)"
         ></app-gif-list>
 
         <ion-infinite-scroll
@@ -39,13 +76,27 @@ import { Gif } from '../shared/interfaces';
       </ion-content>
     </ng-container>
   `,
+  styles: [
+    `
+      ion-infinite-scroll-content {
+        margin-top: 20px;
+      }
+
+      ion-buttons {
+        margin: auto 0;
+      }
+    `,
+  ],
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit {
+  subredditFormControl = new FormControl('gifs');
+
+  settingsModalOpen$ = new BehaviorSubject<boolean>(false);
   currentlyLoadingGifs$ = new BehaviorSubject<string[]>([]);
   loadedGifs$ = new BehaviorSubject<string[]>([]);
 
   gifs$ = combineLatest([
-    this.redditService.getGifs(),
+    this.redditService.getGifs(this.subredditFormControl),
     this.currentlyLoadingGifs$,
     this.loadedGifs$,
   ]).pipe(
@@ -55,15 +106,29 @@ export class HomeComponent {
         loading: currentlyLoadingGifs.includes(gif.permalink),
         dataLoaded: loadedGifs.includes(gif.permalink),
       }))
-    ),
-    tap((gifs) => console.log(gifs))
+    )
   );
 
-  vm$ = combineLatest([this.gifs$.pipe(startWith([]))]).pipe(
-    map(([gifs]) => ({ gifs }))
+  vm$ = combineLatest([
+    this.gifs$.pipe(startWith([])),
+    this.settingsModalOpen$,
+    this.redditService.isLoading$,
+  ]).pipe(
+    map(([gifs, settingsModalOpen, isLoading]) => ({
+      gifs,
+      settingsModalOpen,
+      isLoading,
+    }))
   );
 
-  constructor(private redditService: RedditService) {}
+  constructor(
+    private redditService: RedditService,
+    private settingsService: SettingsService
+  ) {}
+
+  ngOnInit(): void {
+    this.settingsService.init();
+  }
 
   setLoading(permalink: string) {
     this.currentlyLoadingGifs$.next([
@@ -72,7 +137,7 @@ export class HomeComponent {
     ]);
   }
 
-  setLoadingCoplete(permalinkToComplete: string) {
+  setLoadingComplete(permalinkToComplete: string) {
     this.loadedGifs$.next([...this.loadedGifs$.value, permalinkToComplete]);
 
     this.currentlyLoadingGifs$.next([

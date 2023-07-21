@@ -7,6 +7,7 @@ import {
   EventEmitter,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Browser } from '@capacitor/browser';
 import { IonicModule } from '@ionic/angular';
 import { Gif } from 'src/app/shared/interfaces';
 
@@ -43,6 +44,12 @@ import { Gif } from 'src/app/shared/interfaces';
           </div>
           <ion-label>{{ gif.title }}</ion-label>
         </ion-item>
+        <ion-list-header>
+          <ion-label>{{ gif.title }}</ion-label>
+          <ion-button (click)="openComments(gif)">
+            <ion-icon name="chatbubbles"></ion-icon> {{ gif.comments }}
+          </ion-button>
+        </ion-list-header>
       </div>
     </ion-list>
   `,
@@ -117,10 +124,20 @@ export class GifListCopmonent {
     return gif.permalink;
   }
 
+  openComments(gif: Gif) {
+    Browser.open({
+      toolbarColor: '#fff',
+      url: `https://reddit.com/${gif.permalink}`,
+      windowName: '_system',
+    });
+  }
+
   playVideo(ev: Event, gif: Gif) {
     const video = ev.target as HTMLVideoElement;
 
     if (video.readyState === 4) {
+      // Cached videos that have ready state must have their loaded property updated
+      this.gifLoadComplete.emit(gif.permalink);
       if (video.paused) {
         video.play();
       } else {
@@ -133,12 +150,12 @@ export class GifListCopmonent {
 
         const handleVideoLoaded = async () => {
           this.gifLoadComplete.next(gif.permalink);
+          video.setAttribute('data-event-loadeddata', 'true');
           await video.play();
           video.removeEventListener('loadeddata', handleVideoLoaded);
         };
 
         video.addEventListener('loadeddata', handleVideoLoaded);
-        video.setAttribute('data-event-loadeddata', 'true');
       }
     }
   }

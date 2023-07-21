@@ -1,12 +1,28 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, EMPTY, catchError, concatMap, map, scan } from 'rxjs';
+import {
+  BehaviorSubject,
+  EMPTY,
+  catchError,
+  combineLatest,
+  concatMap,
+  debounceTime,
+  distinctUntilChanged,
+  expand,
+  map,
+  scan,
+  startWith,
+  switchMap,
+  tap,
+} from 'rxjs';
 import {
   Gif,
   RedditPagination,
   RedditPost,
   RedditResponse,
 } from '../interfaces';
+import { FormControl } from '@angular/forms';
+import { SettingsService } from './settings.service';
 
 @Injectable({ providedIn: 'root' })
 export class RedditService {
@@ -16,7 +32,15 @@ export class RedditService {
     retries: 0,
     totalFound: 0,
   });
-  constructor(private http: HttpClient) {}
+
+  isLoading$ = new BehaviorSubject<boolean>(false);
+
+  private settings$ = this.settingsService.settings$;
+
+  constructor(
+    private http: HttpClient,
+    private settingsService: SettingsService
+  ) {}
 
   nextPage(infinteScrollEvent: Event, after: string) {
     this.pagination$.next({
@@ -28,21 +52,92 @@ export class RedditService {
     });
   }
 
-  getGifs() {
-    const gifsForCurrentPage$ = this.pagination$.pipe(
-      concatMap((pagination) =>
-        this.fetchFromReddit('gifs', 'hot', pagination.after)
+  getGifs(subredditFormControl: FormControl) {
+    const subreddit$ = subredditFormControl.valueChanges.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      startWith(subredditFormControl.value),
+      tap(() =>
+        this.pagination$.next({
+          after: null,
+          infiniteScroll: null,
+          retries: 0,
+          totalFound: 0,
+        })
       )
     );
 
-    const allGifs$ = gifsForCurrentPage$.pipe(
-      scan((previousGifs, currentGifs) => [...previousGifs, ...currentGifs])
-    );
+    // BEHOLD! The power of RxJS!
+    // Recursively fetch gifs to meet the settings.perPage requirement
+    return combineLatest([subreddit$, this.settings$]).pipe(
+      switchMap(([subreddit, settings]) => {
+        // Fetch gifs stream
+        const gifsForCurrentPage$ = this.pagination$.pipe(
+          tap(() => this.isLoading$.next(true)),
+          concatMap((pagination) =>
+            this.fetchFromReddit(
+              subreddit,
+              settings.sort,
+              pagination.after,
+              settings.perPage
+            ).pipe(
+              // Keep retrying until we have enough valid gifs to fill a page
+              // 'expand' will keep repeating itself as long as it returns
+              // a non-empty observable
+              expand((res, index) => {
+                const validGifs = res.gifs.filter((gif) => gif.src !== null);
+                const gifsRequired = res.gifsRequired - validGifs.length;
+                const maxAttempts = 10;
 
-    return allGifs$;
+                // Keep trying if all criteria is met
+                // - we need more gifs to fill the page
+                // - we got at least one gif back from the API
+                // - we haven't exceeded the max retries
+                const shouldKeepTrying =
+                  gifsRequired > 0 && res.gifs.length && index < maxAttempts;
+
+                if (!shouldKeepTrying) {
+                  pagination.infiniteScroll?.complete();
+                  this.isLoading$.next(false);
+                }
+
+                return shouldKeepTrying
+                  ? this.fetchFromReddit(
+                      subreddit,
+                      settings.sort,
+                      res.gifs[res.gifs.length - 1].name,
+                      gifsRequired
+                    )
+                  : EMPTY; // Stop retrying
+              }),
+              // Filter out any gifs without a src, and don't return more than the amount required
+              // NOTE: Even though expand will keep repeating, each result of expand will be passed
+              // here immediately without waiting for all expand calls to complete
+              map((res) =>
+                res.gifs
+                  .filter((gif) => gif.src !== null)
+                  .slice(0, res.gifsRequired)
+              )
+            )
+          )
+        );
+
+        // Every time we get a new list of gifs, add it to cached gifs
+        const allGifs$ = gifsForCurrentPage$.pipe(
+          scan((previousGifs, currentGifs) => [...previousGifs, ...currentGifs])
+        );
+
+        return allGifs$;
+      })
+    );
   }
 
-  fetchFromReddit(subreddit: string, sort: string, after: string | null) {
+  fetchFromReddit(
+    subreddit: string,
+    sort: string,
+    after: string | null,
+    gifsRequired: number
+  ) {
     return this.http
       .get<RedditResponse>(
         `https://www.reddit.com/r/${subreddit}/${sort}/.json?limit=100` +
@@ -50,7 +145,10 @@ export class RedditService {
       )
       .pipe(
         catchError(() => EMPTY),
-        map((res) => this.convertRedditPostsToGifs(res.data.children))
+        map((res) => ({
+          gifs: this.convertRedditPostsToGifs(res.data.children),
+          gifsRequired,
+        }))
       );
   }
 
