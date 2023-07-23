@@ -80,6 +80,10 @@ import { Gif } from 'src/app/shared/interfaces';
         overflow: auto;
       }
 
+      .gif {
+        margin-bottom: 10px;
+      }
+
       .gif ion-item {
         --inner-padding-end: 0;
         --padding-start: 0;
@@ -92,8 +96,8 @@ import { Gif } from 'src/app/shared/interfaces';
         left: 0px;
         right: 0px;
         z-index: 1;
-        background-color: var(--ion-color-dark);
-        border: 10px solid var(--ion-color-dark);
+        /* background-color: var(--ion-color-dark); */
+        /* border: 10px solid var(--ion-color-dark); */
         border-radius: 5px;
         padding: 20px;
       }
@@ -103,15 +107,15 @@ import { Gif } from 'src/app/shared/interfaces';
         width: 100%;
         margin-top: 5px;
         text-align: right;
-        color: var(--ion-color-medium);
+        /* color: var(--ion-color-medium); */
       }
 
       ion-list-header {
         display: flex;
         flex-direction: column;
         align-items: center;
-        background-color: var(--ion-color-light);
-        border-bottom: 10px solid var(--ion-color-medium);
+        /* background-color: var(--ion-color-light); */
+        /* border-bottom: 10px solid var(--ion-color-medium); */
       }
 
       ion-list-header > ion-label {

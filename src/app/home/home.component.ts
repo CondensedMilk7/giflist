@@ -45,7 +45,6 @@ import { RouterModule } from '@angular/router';
         </ion-toolbar>
         <ion-progress-bar
           *ngIf="vm.isLoading"
-          color="dark"
           type="indeterminate"
           reversed="true"
         ></ion-progress-bar>
