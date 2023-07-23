@@ -35,20 +35,35 @@ import { Gif } from 'src/app/shared/interfaces';
                 : {}
             "
           >
+            <h2
+              class="nsfw-mark"
+              *ngIf="gif.thumbnail === 'nsfw' && !gif.playing"
+            >
+              NSFW
+            </h2>
             <video
               playsinline
               [loop]="true"
               [muted]="true"
               [src]="gif.src"
+              [ngStyle]="gif.playing ? { opacity: '1' } : { opacity: '0' }"
             ></video>
           </div>
           <ion-label>{{ gif.title }}</ion-label>
         </ion-item>
         <ion-list-header>
           <ion-label>{{ gif.title }}</ion-label>
-          <ion-button (click)="openComments(gif)">
-            <ion-icon name="chatbubbles"></ion-icon> {{ gif.comments }}
-          </ion-button>
+          <div class="gif-actions">
+            <ion-button (click)="openComments(gif)">
+              <ion-icon name="chatbubbles"></ion-icon> {{ gif.comments }}
+            </ion-button>
+            <ion-button *ngIf="!gif.saved" (click)="save.emit(gif)">
+              <ion-icon name="bookmark"></ion-icon> save
+            </ion-button>
+            <ion-button *ngIf="gif.saved" (click)="unsave.emit(gif)">
+              <ion-icon name="trash"></ion-icon> unsave
+            </ion-button>
+          </div>
         </ion-list-header>
       </div>
     </ion-list>
@@ -92,9 +107,21 @@ import { Gif } from 'src/app/shared/interfaces';
       }
 
       ion-list-header {
+        display: flex;
+        flex-direction: column;
         align-items: center;
         background-color: var(--ion-color-light);
         border-bottom: 10px solid var(--ion-color-medium);
+      }
+
+      ion-list-header > ion-label {
+        width: 100%;
+      }
+
+      .gif-actions {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
       }
 
       ion-list-header ion-button {
@@ -104,6 +131,15 @@ import { Gif } from 'src/app/shared/interfaces';
       .preload-background {
         width: 100%;
         height: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+      }
+
+      .nsfw-mark {
+        position: absolute;
+        z-index: 2;
       }
 
       video {
@@ -119,6 +155,10 @@ export class GifListCopmonent {
   @Input() gifs!: Gif[];
   @Output() gifLoadStart = new EventEmitter<string>();
   @Output() gifLoadComplete = new EventEmitter<string>();
+  @Output() startPlayingGif = new EventEmitter<string>();
+  @Output() stopPlayingGif = new EventEmitter<string>();
+  @Output() save = new EventEmitter<Gif>();
+  @Output() unsave = new EventEmitter<Gif>();
 
   trackByFn(index: number, gif: Gif) {
     return gif.permalink;
@@ -139,8 +179,10 @@ export class GifListCopmonent {
       // Cached videos that have ready state must have their loaded property updated
       this.gifLoadComplete.emit(gif.permalink);
       if (video.paused) {
+        this.startPlayingGif.emit(gif.permalink);
         video.play();
       } else {
+        this.stopPlayingGif.emit(gif.permalink);
         video.pause();
       }
     } else {
@@ -150,6 +192,7 @@ export class GifListCopmonent {
 
         const handleVideoLoaded = async () => {
           this.gifLoadComplete.next(gif.permalink);
+          this.startPlayingGif.emit(gif.permalink);
           video.setAttribute('data-event-loadeddata', 'true');
           await video.play();
           video.removeEventListener('loadeddata', handleVideoLoaded);

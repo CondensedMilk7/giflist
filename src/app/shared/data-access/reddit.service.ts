@@ -22,7 +22,7 @@ import {
   RedditResponse,
 } from '../interfaces';
 import { FormControl } from '@angular/forms';
-import { SettingsService } from './settings.service';
+import { StorageService } from './storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class RedditService {
@@ -35,11 +35,11 @@ export class RedditService {
 
   isLoading$ = new BehaviorSubject<boolean>(false);
 
-  private settings$ = this.settingsService.settings$;
+  private settings$ = this.storageService.settings$;
 
   constructor(
     private http: HttpClient,
-    private settingsService: SettingsService
+    private storageService: StorageService
   ) {}
 
   nextPage(infinteScrollEvent: Event, after: string) {

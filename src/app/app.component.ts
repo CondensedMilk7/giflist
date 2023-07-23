@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
+import { StorageService } from './shared/data-access/storage.service';
 
 @Component({
   imports: [IonicModule],
@@ -12,4 +13,10 @@ import { IonicModule } from '@ionic/angular';
     </ion-app>
   `,
 })
-export class AppComponent {}
+export class AppComponent implements OnInit {
+  constructor(private storageService: StorageService) {}
+
+  ngOnInit(): void {
+    this.storageService.init();
+  }
+}

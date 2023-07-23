@@ -1,14 +1,15 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
 import { RedditService } from '../shared/data-access/reddit.service';
-import { GifListCopmonent } from './ui/gif-list.component';
+import { GifListCopmonent } from '../shared/ui/gif-list.component';
 import { CommonModule } from '@angular/common';
-import { BehaviorSubject, combineLatest, map, startWith, tap } from 'rxjs';
+import { BehaviorSubject, combineLatest, map, startWith } from 'rxjs';
 import { Gif } from '../shared/interfaces';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { SearchBarComponent } from './ui/search-bar.component';
 import { SettingsComponent } from '../settings/settings.component';
-import { SettingsService } from '../shared/data-access/settings.service';
+import { StorageService } from '../shared/data-access/storage.service';
+import { RouterModule } from '@angular/router';
 
 @Component({
   imports: [
@@ -18,6 +19,7 @@ import { SettingsService } from '../shared/data-access/settings.service';
     ReactiveFormsModule,
     SearchBarComponent,
     SettingsComponent,
+    RouterModule,
   ],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +32,9 @@ import { SettingsService } from '../shared/data-access/settings.service';
             [subredditFormControl]="subredditFormControl"
           ></app-search-bar>
           <ion-buttons slot="end">
+            <ion-button routerLink="/saved">
+              <ion-icon slot="icon-only" name="bookmark"></ion-icon>
+            </ion-button>
             <ion-button
               id="settings-button"
               (click)="settingsModalOpen$.next(true)"
@@ -61,6 +66,10 @@ import { SettingsService } from '../shared/data-access/settings.service';
           [gifs]="vm.gifs"
           (gifLoadStart)="setLoading($event)"
           (gifLoadComplete)="setLoadingComplete($event)"
+          (startPlayingGif)="startPlaying($event)"
+          (stopPlayingGif)="stopPlaying($event)"
+          (save)="storageService.saveGif($event)"
+          (unsave)="storageService.unsaveGif($event)"
         ></app-gif-list>
 
         <ion-infinite-scroll
@@ -88,24 +97,39 @@ import { SettingsService } from '../shared/data-access/settings.service';
     `,
   ],
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent {
   subredditFormControl = new FormControl('gifs');
 
   settingsModalOpen$ = new BehaviorSubject<boolean>(false);
   currentlyLoadingGifs$ = new BehaviorSubject<string[]>([]);
   loadedGifs$ = new BehaviorSubject<string[]>([]);
+  currentlyPlayingGifs$ = new BehaviorSubject<string[]>([]);
+  savedGifs$ = this.storageService.savedGifs$;
 
   gifs$ = combineLatest([
     this.redditService.getGifs(this.subredditFormControl),
     this.currentlyLoadingGifs$,
     this.loadedGifs$,
+    this.currentlyPlayingGifs$,
+    this.savedGifs$,
   ]).pipe(
-    map(([gifs, currentlyLoadingGifs, loadedGifs]) =>
-      gifs.map((gif) => ({
-        ...gif,
-        loading: currentlyLoadingGifs.includes(gif.permalink),
-        dataLoaded: loadedGifs.includes(gif.permalink),
-      }))
+    map(
+      ([
+        gifs,
+        currentlyLoadingGifs,
+        loadedGifs,
+        currentlyPlayingGifs,
+        savedGifs,
+      ]) =>
+        gifs.map((gif) => ({
+          ...gif,
+          loading: currentlyLoadingGifs.includes(gif.permalink),
+          dataLoaded: loadedGifs.includes(gif.permalink),
+          playing: currentlyPlayingGifs.includes(gif.permalink),
+          saved: savedGifs.some(
+            (savedGif) => savedGif.permalink === gif.permalink
+          ),
+        }))
     )
   );
 
@@ -123,11 +147,20 @@ export class HomeComponent implements OnInit {
 
   constructor(
     private redditService: RedditService,
-    private settingsService: SettingsService
+    public storageService: StorageService
   ) {}
 
-  ngOnInit(): void {
-    this.settingsService.init();
+  startPlaying(permalink: string) {
+    this.currentlyPlayingGifs$.next([
+      ...this.currentlyPlayingGifs$.value,
+      permalink,
+    ]);
+  }
+
+  stopPlaying(permalink: string) {
+    this.currentlyPlayingGifs$.next(
+      this.currentlyPlayingGifs$.value.filter((gif) => gif !== permalink)
+    );
   }
 
   setLoading(permalink: string) {

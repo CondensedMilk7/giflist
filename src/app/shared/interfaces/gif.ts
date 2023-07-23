@@ -8,4 +8,6 @@ export interface Gif {
   comments: number;
   loading?: boolean;
   dataLoaded?: boolean;
+  playing?: boolean;
+  saved?: boolean;
 }

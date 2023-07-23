@@ -3,9 +3,9 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { IonicModule, PopoverController } from '@ionic/angular';
 import { Settings } from '../shared/interfaces';
-import { SettingsService } from '../shared/data-access/settings.service';
 import { SettingsFormComponent } from './ui/settings-form.component';
 import { tap } from 'rxjs';
+import { StorageService } from '../shared/data-access/storage.service';
 
 @Component({
   imports: [
@@ -53,18 +53,18 @@ export class SettingsComponent {
     sort: 'hot',
   });
 
-  settings$ = this.settingsService.settings$.pipe(
+  settings$ = this.storageService.settings$.pipe(
     tap((settings) => this.settingsForm.patchValue(settings))
   );
 
   constructor(
     private fb: NonNullableFormBuilder,
-    public settingsService: SettingsService,
+    public storageService: StorageService,
     public popoverCtrl: PopoverController
   ) {}
 
   handleSave() {
-    this.settingsService.save(this.settingsForm.getRawValue());
+    this.storageService.saveSettings(this.settingsForm.getRawValue());
     this.popoverCtrl.dismiss();
   }
 }
