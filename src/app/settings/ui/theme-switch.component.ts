@@ -17,7 +17,7 @@ import { Theme } from 'src/app/shared/interfaces';
   selector: 'app-theme-switch',
   template: `
     <form>
-      <ion-segment [formControl]="themeControl">
+      <ion-segment color="primary" [formControl]="themeControl">
         <ion-segment-button
           value="light"
           type="submit"

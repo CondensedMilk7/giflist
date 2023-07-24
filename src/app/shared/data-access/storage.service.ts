@@ -36,11 +36,11 @@ export class StorageService {
 
   #settings$ = new BehaviorSubject<Settings>({ perPage: 10, sort: 'hot' });
   #savedGifs$ = new BehaviorSubject<Gif[]>([]);
-  #theme$ = new Subject<Theme>();
+  #theme$ = new BehaviorSubject<Theme>('system');
 
   settings$ = this.#settings$.asObservable();
   savedGifs$ = this.#savedGifs$.asObservable();
-  theme$ = this.#theme$.asObservable().pipe(shareReplay(1));
+  theme$ = this.#theme$.asObservable();
 
   constructor(private ionicStorage: Storage) {}
 
